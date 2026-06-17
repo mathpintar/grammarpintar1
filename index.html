@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bijak Grammar - Learn English Grammar the Smart Way</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --secondary: #ec4899;
+            --bg: #f8fafc;
+            --text: #1e293b;
+            --card: #ffffff;
+        }
+        .dark-mode {
+            --primary: #818cf8;
+            --secondary: #f472b6;
+            --bg: #0f172a;
+            --text: #f1f5f9;
+            --card: #1e293b;
+        }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; transition: 0.3s; }
+        .container { max-width: 800px; margin: 20px auto; padding: 20px; }
+        .card { background: var(--card); padding: 25px; border-radius: 20px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        button { background: var(--primary); color: white; border: none; padding: 12px 24px; border-radius: 10px; cursor: pointer; font-weight: 600; transition: 0.2s; }
+        button:hover { opacity: 0.9; transform: translateY(-2px); }
+        .hidden { display: none; }
+        input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #ddd; margin: 10px 0; box-sizing: border-box; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
+        #progress-bar { height: 10px; background: #e2e8f0; border-radius: 5px; overflow: hidden; margin: 20px 0; }
+        #progress-fill { height: 100%; background: var(--primary); width: 0%; transition: 0.3s; }
+    </style>
+</head>
+<body>
+
+<div class="container" id="app">
+    <div id="login-screen" class="card">
+        <h1>Welcome to Bijak Grammar</h1>
+        <p>Learn English Grammar the Smart Way</p>
+        <input type="text" id="username" placeholder="Enter your name">
+        <button onclick="login()">Enter</button>
+    </div>
+
+    <div id="main-menu" class="card hidden">
+        <h2 id="welcome-msg"></h2>
+        <button onclick="toggleDarkMode()">Toggle Dark Mode</button>
+        <button onclick="logout()">Logout</button>
+        <h3>Select a Topic</h3>
+        <div class="grid" id="topic-grid"></div>
+    </div>
+
+    <div id="quiz-screen" class="card hidden">
+        <div id="quiz-header"></div>
+        <div id="progress-bar"><div id="progress-fill"></div></div>
+        <h3 id="question-text"></h3>
+        <div id="options-container" class="grid"></div>
+        <div style="margin-top:20px">
+            <button onclick="previousQuestion()">Previous</button>
+            <button onclick="submitQuiz()">Submit Quiz</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Data Engine ---
+    const topics = ["Nouns", "Pronouns", "Verbs", "Adjectives", "Adverbs", "Prepositions", "Conjunctions", "Articles", "Tenses"];
+    
+    // Generating dummy bank structure - in a real production, add 100 questions per array
+    const questionBank = {};
+    topics.forEach(t => {
+        questionBank[t] = Array.from({length: 100}, (_, i) => ({
+            question: `${t} Example Question ${i+1}`,
+            options: ["Option A", "Option B", "Option C", "Option D"],
+            answer: "Option A"
+        }));
+    });
+
+    let state = {
+        user: localStorage.getItem('bijak_user') || null,
+        darkMode: localStorage.getItem('dark') === 'true',
+        score: 0,
+        currentQuestionIndex: 0,
+        selectedTopic: null,
+        questions: [],
+        answers: {}
+    };
+
+    function login() {
+        const name = document.getElementById('username').value;
+        if (!name) return alert("Please enter your name");
+        localStorage.setItem('bijak_user', name);
+        state.user = name;
+        showScreen('main-menu');
+        initMenu();
+    }
+
+    function showScreen(id) {
+        document.querySelectorAll('.card').forEach(c => c.classList.add('hidden'));
+        document.getElementById(id).classList.remove('hidden');
+    }
+
+    function initMenu() {
+        document.getElementById('welcome-msg').innerText = `Hello, ${state.user}!`;
+        const grid = document.getElementById('topic-grid');
+        grid.innerHTML = '';
+        [...topics, "Mixed"].forEach(t => {
+            const btn = document.createElement('button');
+            btn.innerText = t;
+            btn.onclick = () => startQuiz(t);
+            grid.appendChild(btn);
+        });
+    }
+
+    function startQuiz(topic) {
+        state.selectedTopic = topic;
+        state.questions = topic === "Mixed" ? 
+            Object.values(questionBank).flat().sort(() => 0.5 - Math.random()).slice(0, 20) :
+            [...questionBank[topic]].sort(() => 0.5 - Math.random()).slice(0, 20);
+        
+        state.currentQuestionIndex = 0;
+        showScreen('quiz-screen');
+        renderQuestion();
+    }
+
+    function renderQuestion() {
+        const q = state.questions[state.currentQuestionIndex];
+        document.getElementById('question-text').innerText = q.question;
+        const container = document.getElementById('options-container');
+        container.innerHTML = '';
+        q.options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.innerText = opt;
+            btn.onclick = () => { state.answers[state.currentQuestionIndex] = opt; renderQuestion(); };
+            container.appendChild(btn);
+        });
+        document.getElementById('progress-fill').style.width = `${(state.currentQuestionIndex + 1) / state.questions.length * 100}%`;
+    }
+
+    function previousQuestion() {
+        if (state.currentQuestionIndex > 0) {
+            state.currentQuestionIndex--;
+            renderQuestion();
+        }
+    }
+
+    function submitQuiz() {
+        // Simple scoring logic
+        let score = 0;
+        state.questions.forEach((q, i) => {
+            if (state.answers[i] === q.answer) score++;
+        });
+        alert(`Quiz Finished! Your score: ${score}/${state.questions.length}`);
+        showScreen('main-menu');
+    }
+
+    function toggleDarkMode() {
+        state.darkMode = !state.darkMode;
+        document.body.classList.toggle('dark-mode', state.darkMode);
+        localStorage.setItem('dark', state.darkMode);
+    }
+
+    function logout() {
+        localStorage.removeItem('bijak_user');
+        location.reload();
+    }
+
+    // Init App
+    if (state.user) {
+        showScreen('main-menu');
+        initMenu();
+    }
+    if (state.darkMode) document.body.classList.add('dark-mode');
+</script>
+</body>
+</html>
